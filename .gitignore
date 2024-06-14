@@ -1,0 +1,32 @@
+# Ignore Visual Studio temporary files
+*.vs/
+# Ignore Python cache files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+# Ignore temporary and backup files
+*.tmp
+*.temp
+*.bak
+*.swp
+# Ignore compiled binary files
+*.com
+*.exe
+*.dll
+*.so
+# Ignore distribution and packaging files
+*.egg
+*.egg-info
+dist/
+build/
+# Ignore virtual environment directories
+venv/
+env/
+# Ignore IDE configuration files
+.idea/
+.vscode/
+# Ignore pytest cache
+.pytest_cache/
+# Ignore Poetry lock file
+poetry.lock
