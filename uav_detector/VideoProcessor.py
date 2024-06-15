@@ -9,7 +9,6 @@ import pillow_heif
 import numpy as np
 
 class MediaProcessor:
-
     def __init__(self, output_folder, model_path, confidence_threshold=0.25, batch_size=16):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.output_folder = output_folder
@@ -33,7 +32,6 @@ class MediaProcessor:
             return cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
         else:
             return cv2.imread(path)
-
 
     def get_Boxes_and_Tables(self, pics):
         annotated_images = []
@@ -68,12 +66,12 @@ class MediaProcessor:
             #annotated_image = cv2.cvtColor(annotated_image, cv2.COLOR_BGR2RGB)
         return annotated_images, tables
 
-    def save_pics(self, images, to_process_names):
+    def save_pics(self, images, to_process_names, tables):
         os.makedirs(self.output_folder, exist_ok=True)
 
         save_paths = []
         # Сохраняем каждое изображение в отдельный файл
-        for img_array, name_inp in zip(images, to_process_names):
+        for img_array, name_inp, table in zip(images, to_process_names, tables):
             img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
             # Формируем новое имя
             name_out = os.path.splitext(os.path.basename(name_inp))[0]
@@ -82,6 +80,8 @@ class MediaProcessor:
             # Создаем корректный путь к файлу
             output_path = os.path.join(self.output_folder, f'{name_out}.png')
             img.save(output_path)
+            output_path_metadata = os.path.join(self.metadata_folder, f'{name_out}.csv')
+            table.to_csv(output_path_metadata)
             save_paths.append(output_path)
         return save_paths
 
@@ -89,9 +89,9 @@ class MediaProcessor:
         #results = self.model(images, verbose=False, save_dir='processed_files', save=True)
         data = self.model(to_process_names, conf = self.confidence_threshold, batch=self.batch_size)
         pics, tables = self.get_Boxes_and_Tables(data)
-        save_paths = self.save_pics(pics, to_process_names)
+        save_paths = self.save_pics(pics, to_process_names, tables)
 
-        return save_paths, tables
+        return save_paths
 
     def process_single_video(self, video_path):
         cap = cv2.VideoCapture(video_path)
@@ -162,7 +162,7 @@ class MediaProcessor:
         tab = pd.DataFrame(data)
         tab['class'] = tab['class'].astype(int)#.map(self.classes)
         os.makedirs(self.metadata_folder, exist_ok=True)
-        tab.to_csv(os.path.join(self.metadata_folder, f'{os.path.basename(video_path)}.csv'))
+        tab.to_csv(os.path.join(self.metadata_folder, f'{os.path.splitext(os.path.basename(video_path))[0]}.csv'))
         return output_video_path
 
     def process_videos(self, video_paths):
@@ -182,9 +182,8 @@ def process_media(input_paths, processor):
     img_save_paths_list, vid_save_paths_list = [], []
 
     if image_paths:
-        img_save_paths_list, tables = processor.process_images(image_paths)
+        img_save_paths_list = processor.process_images(image_paths)
     if video_paths:
         vid_save_paths_list = processor.process_videos(video_paths)
     print(vid_save_paths_list)
     return img_save_paths_list, vid_save_paths_list
-
