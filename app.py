@@ -2,32 +2,62 @@ import streamlit as st
 import os
 from ultralytics import YOLO
 from VideoProcessor import MediaProcessor, process_media
+import pandas as pd
+
+options = {
+    #"start": 0,  # Начальное время
+    #"end": 4000000,    # Конечное время (4 секунды)
+    "min": 0,
+    "max": 7200000,
+    #"zoomMin": 1000,  # Минимальный интервал для зума (миллисекунды)
+    #"zoomMax": 60000,  # Максимальный интервал для зума (миллисекунды)
+    "timeAxis": {"scale": "minute", "step": 1},
+    "format": {
+        "minorLabels": {
+            "second": "s",
+            "minute": "mm:ss",
+            "hour": "mm:ss"
+        },
+        "majorLabels": {
+            "second": "s",
+            "minute": "mm:ss",
+            "hour": "mm:ss"
+        }
+    }
+}
 
 # Создание папок для загрузки и обработки файлов
-def create_folders(upload_folder="uploaded_files", processed_folder="processed_files"):
+def create_folders(upload_folder="uav_detector/uploaded_files", processed_folder="uav_detector/processed_files"):
     if not os.path.exists(upload_folder):
         os.makedirs(upload_folder)
     if not os.path.exists(processed_folder):
         os.makedirs(processed_folder)
 
 # Функция для загрузки файлов
-def save_uploaded_file(uploaded_file, folder_name="uploaded_files"):
+def save_uploaded_file(uploaded_file, folder_name="uav_detector/uploaded_files"):
     file_path = os.path.join(folder_name, uploaded_file.name)
     with open(file_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return file_path
 
 # Функция для отображения файлов с центровкой
-def display_file(selected_file, folder_name="processed_files"):
+def display_file(selected_file, folder_name="uav_detector/processed_files"):
     file_path = os.path.join(folder_name, selected_file)
     if selected_file.endswith('.mp4'):
+        print(file_path)
         st.video(file_path)
+        #table = pd.read_csv('metadata/drones.mp4_detection_results.csv')
+        #table.reset_index(drop=True, inplace=True)
+        #table.rename_axis('id', axis='index', inplace=True)
+        #table.reset_index(inplace=True)
+        #table['timestamp'] = (table['timestamp']*1000)#.astype('int')
+        #table = table[['id', 'timestamp', 'class']]
+        #items = table.to_dict(orient='records')
+        #timeline = st_timeline(items, groups=[], options=options, height="300px")
     else:
         st.image(file_path, use_column_width=True)
 
 def exclude_processed_files(file_list, processed_files):
-    #print(f'Уже обработанные файлы: {processed_files}')
-    #print(f'basename: {os.path.basename(file_list[0].name)} или {file_list[0].name}')
     return [file for file in file_list if os.path.basename(file.file_id) not in processed_files]
 
 # Основная функция приложения
@@ -92,7 +122,7 @@ def main(processor):
 
 # Запуск приложения
 if __name__ == "__main__":
-    model_path = 'trained_y8m.pt'  # Укажите путь к модели
-    processor = MediaProcessor('processed_files', model_path, batch_size=16)
+    model_path = 'uav_detector/models/yolo8m_last.pt'  # Укажите путь к модели
+    processor = MediaProcessor('uav_detector/processed_files', model_path, batch_size=16)
 
     main(processor)
