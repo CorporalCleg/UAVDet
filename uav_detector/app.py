@@ -1,48 +1,42 @@
 import streamlit as st
-import os
+import os, zipfile, io
 from ultralytics import YOLO
 from VideoProcessor import MediaProcessor, process_media
 import pandas as pd
 
-
-options = {
-    #"start": 0,  # Начальное время
-    #"end": 4000000,    # Конечное время (4 секунды)
-    "min": 0,
-    "max": 7200000,
-    #"zoomMin": 1000,  # Минимальный интервал для зума (миллисекунды)
-    #"zoomMax": 60000,  # Максимальный интервал для зума (миллисекунды)
-    "timeAxis": {"scale": "minute", "step": 1},
-    "format": {
-        "minorLabels": {
-            "second": "s",
-            "minute": "mm:ss",
-            "hour": "mm:ss"
-        },
-        "majorLabels": {
-            "second": "s",
-            "minute": "mm:ss",
-            "hour": "mm:ss"
-        }
-    }
-}
+metadata_folder = 'uav_detector/metadata'
+processed_files_folder = 'uav_detector/processed_files'
+uploaded_files_folder = 'uav_detector/uploaded_files'
+model_folder = 'uav_detector/models'
 
 # Создание папок для загрузки и обработки файлов
-def create_folders(upload_folder="uav_detector/uploaded_files", processed_folder="uav_detector/processed_files"):
+def create_folders(upload_folder=uploaded_files_folder, processed_folder=processed_files_folder):
     if not os.path.exists(upload_folder):
         os.makedirs(upload_folder)
     if not os.path.exists(processed_folder):
         os.makedirs(processed_folder)
 
 # Функция для загрузки файлов
-def save_uploaded_file(uploaded_file, folder_name="uav_detector/uploaded_files"):
+def save_uploaded_file(uploaded_file, folder_name=uploaded_files_folder):
     file_path = os.path.join(folder_name, uploaded_file.name)
     with open(file_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return file_path
 
+def zip_files(metadata_folder, file_paths):
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for file_path in file_paths:
+            # Получаем базовое имя файла без расширения и добавляем .csv
+            pure_name = os.path.splitext(os.path.basename(file_path))[0]
+            full_path = os.path.join(metadata_folder, pure_name + '.csv')
+            print(full_path)
+            zipf.write(full_path, arcname=pure_name + '.csv')
+    zip_buffer.seek(0)
+    return zip_buffer
+
 # Функция для отображения файлов с центровкой
-def display_file(selected_file, folder_name="uav_detector/processed_files"):
+def display_file(selected_file, folder_name=processed_files_folder):
     file_path = os.path.join(folder_name, selected_file)
     if selected_file.endswith('.mp4'):
         print(file_path)
@@ -76,55 +70,57 @@ def main(processor):
 
     # Загрузка файлов
     uploaded_files = st.file_uploader("Загрузите фото и видео", accept_multiple_files=True)
-    #print(f'uploaded_files: {uploaded_files}')
     if uploaded_files:
         input_paths = []
-        # Исключение уже обработанных файлов
-        #print(st.session_state.processed_files)
         new_files = exclude_processed_files(uploaded_files, st.session_state.processed_files)
-        #print(f'new_files: {new_files}')
         for uploaded_file in new_files:
             file_path = save_uploaded_file(uploaded_file)
             input_paths.append(file_path)
         if input_paths:
             st.toast(f"Файлы загружены", icon="🟢")
             imgs, vids = process_media(input_paths, processor)
-            #print(f'input_paths: {input_paths}')
-            # Получение реальных названий файлов с расширениями, но без папки
             new_variants = [os.path.basename(i) for i in imgs + vids]
             st.session_state.variants.extend(new_variants)
             st.toast(f"Файлы обработаны", icon="🟢")
 
-            # Добавление обработанных файлов в processed_files
             st.session_state.processed_files.extend([os.path.basename(i.file_id) for i in new_files])
     
     # Удаление дубликатов из вариантов
     st.session_state.variants = list(set(st.session_state.variants))
 
-    # Поле для выбора файла из выпадающего списка
-    if st.session_state.variants:
-        selected_file = st.selectbox("Выберите файл", st.session_state.variants)
-        # Центровка и отображение выбранного файла
-        if selected_file:
-            st.markdown(
-                """
-                <style>
-                .centered {
-                    display: flex;
-                    justify-content: center;
-                }
-                </style>
-                """,
-                unsafe_allow_html=True
-            )
-            st.markdown('<div class="centered">', unsafe_allow_html=True)
-            display_file(selected_file)
-            st.markdown('</div>', unsafe_allow_html=True)
+    # Контейнер для выпадающего меню и кнопки скачивания
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        selected_file = st.selectbox("Выберите файл", st.session_state.variants, label_visibility='collapsed')
+    with col2:
+        zip_buffer = zip_files(metadata_folder, st.session_state.variants)
+        st.download_button(
+            label="Скачать zip",
+            data=zip_buffer,
+            file_name="files.zip",
+            mime="application/zip"
+        )
 
+    # Центровка и отображение выбранного файла
+    if selected_file:
+        st.markdown(
+            """
+            <style>
+            .centered {
+                display: flex;
+                justify-content: center;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        st.markdown('<div class="centered">', unsafe_allow_html=True)
+        display_file(selected_file)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
 # Запуск приложения
 if __name__ == "__main__":
-    model_path = 'uav_detector/models/yolo8m_last.pt'  # Укажите путь к модели
-
-    processor = MediaProcessor('uav_detector/processed_files', model_path, batch_size=16)
+    model_path = f'{model_folder}/yolo8m_last.pt'  # Укажите путь к модели
+    processor = MediaProcessor(processed_files_folder, model_path, batch_size=16)
 
     main(processor)
