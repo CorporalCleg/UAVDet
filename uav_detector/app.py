@@ -4,6 +4,7 @@ from ultralytics import YOLO
 from VideoProcessor import MediaProcessor, process_media
 import pandas as pd
 
+
 options = {
     #"start": 0,  # Начальное время
     #"end": 4000000,    # Конечное время (4 секунды)
@@ -123,6 +124,7 @@ def main(processor):
 # Запуск приложения
 if __name__ == "__main__":
     model_path = 'uav_detector/models/yolo8m_last.pt'  # Укажите путь к модели
+
     processor = MediaProcessor('uav_detector/processed_files', model_path, batch_size=16)
 
     main(processor)

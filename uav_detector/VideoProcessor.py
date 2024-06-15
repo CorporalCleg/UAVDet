@@ -9,6 +9,7 @@ import pillow_heif
 import numpy as np
 
 class MediaProcessor:
+
     def __init__(self, output_folder, model_path, confidence_threshold=0.25, batch_size=16):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.output_folder = output_folder
@@ -32,6 +33,7 @@ class MediaProcessor:
             return cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
         else:
             return cv2.imread(path)
+
 
     def get_Boxes_and_Tables(self, pics):
         annotated_images = []
@@ -185,3 +187,4 @@ def process_media(input_paths, processor):
         vid_save_paths_list = processor.process_videos(video_paths)
     print(vid_save_paths_list)
     return img_save_paths_list, vid_save_paths_list
+

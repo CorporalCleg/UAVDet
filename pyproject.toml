@@ -11,6 +11,7 @@ ultralytics = "^8.2.32"
 streamlit = "^1.35.0"
 pillow-heif = "^0.16.0"
 
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
