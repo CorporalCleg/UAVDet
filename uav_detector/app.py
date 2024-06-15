@@ -122,7 +122,7 @@ def main(processor):
 
 # Запуск приложения
 if __name__ == "__main__":
-    model_path = 'uav_detector/models/yolo8m_last.pt'  # Укажите путь к модели
+    model_path = 'uav_detector/models/yolov8n.pt'  # Укажите путь к модели
     processor = MediaProcessor('uav_detector/processed_files', model_path, batch_size=16)
 
     main(processor)
