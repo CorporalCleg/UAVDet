@@ -7,6 +7,9 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
+ultralytics = "^8.2.32"
+streamlit = "^1.35.0"
+pillow-heif = "^0.16.0"
 
 
 [build-system]
