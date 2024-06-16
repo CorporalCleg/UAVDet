@@ -10,7 +10,7 @@ processed_files_folder = 'uav_detector/processed_files'
 uploaded_files_folder = 'uav_detector/uploaded_files'
 metadata_folder = 'uav_detector/metadata'
 model_folder = 'uav_detector/models'
-model = "yolov8n.pt"
+model = "yolo8m_last.pt"
 
 # Функция для создания папок для загрузки и обработки файлов
 def create_folders(upload_folder=uploaded_files_folder, processed_folder=processed_files_folder):
