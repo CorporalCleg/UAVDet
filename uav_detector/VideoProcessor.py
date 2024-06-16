@@ -9,71 +9,14 @@ import pillow_heif
 import numpy as np
 
 class MediaProcessor:
-    def __init__(self, output_path, model_path, batch_size=16):
-        self.output_path = output_path
-        self.model_path = model_path
+    def __init__(self, output_folder, model_path, metadata_path, confidence_threshold=0.25, batch_size=16):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.model = YOLO(self.model_path).to(self.device)
-        self.colors = {
-            0: (255, 0, 0),    # quadrotor - красный
-            1: (0, 255, 0),    # airplane - зеленый
-            2: (0, 0, 255),    # helicopter - синий
-            3: (255, 255, 0),  # bird - желтый
-            4: (255, 0, 255)   # uav-plane - фиолетовый
-        }
+        self.output_folder = output_folder
+        self.metadata_folder = metadata_path
+        self.model = YOLO(model_path).to(self.device)
+        self.confidence_threshold = confidence_threshold
+        self.classes = self.model.names
         self.batch_size = batch_size
-
-    def process_single_video(self, video_path):
-        print("----")
-        print('----')
-        print(video_path)
-        print("----")
-        print('----')
-        cap = cv2.VideoCapture(video_path)
-        output_video_path = os.path.join(self.output_path, os.path.basename(video_path))
-        print("----")
-        print('----')
-        print(output_video_path)
-        print("----")
-        print('----')
-        fourcc = cv2.VideoWriter_fourcc(*'avc1')#*'avc1')
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        out = cv2.VideoWriter(output_video_path, fourcc, fps, (int(cap.get(3)), int(cap.get(4))))
-        print('OK')
-        print('OK')
-        print('OK')
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        frames = []
-
-        columns = ['frame_num', 'timestamp', 'class', 'confidence', 'x1', 'y1', 'x2', 'y2']
-        data = []
-
-        frame_num = 0
-        
-        while cap.isOpened():
-            ret, frame_one = cap.read()
-            
-            if ret:
-                frame_num += 1
-                result = self.model(frame_one, verbose=False)[0]
-
-                for box in result.boxes:
-                    x1, y1, x2, y2 = box.xyxy[0].tolist()
-                    conf = box.conf[0].item()
-                    cls = box.cls[0].item()
-                    data.append([frame_num, 0, self.model.names[int(cls)], conf, int(x1), int(y1), int(x2), int(y2)])
-
-                out.write(result.plot())
-            else:
-                break
-
-        cap.release()
-        out.release()
-
-        df = pd.DataFrame(data, columns=columns)
-        df.to_csv(os.path.join('uav_detector/metadata', f"{os.path.basename(video_path)}_detection_results.csv"), index=False)
-        print(df)
-        return output_video_path
 
     def load_image(self, path):
         if path.lower().endswith('.heic'):
@@ -90,21 +33,141 @@ class MediaProcessor:
         else:
             return cv2.imread(path)
 
-    def process_images(self, input_paths):
-        images = [self.load_image(path) for path in input_paths]
-        results = self.model(images, verbose=False)
-        processed_images = []
+    def get_Boxes_and_Tables(self, pics):
+        annotated_images = []
+        tables = []
+        for pic in pics:
+            # Фильтруем результаты на основе порога уверенности
+            #high_conf_indices = pic.boxes.conf > confidence_threshold
 
-        for i, result in enumerate(results):
-            processed_image_path = os.path.join(self.output_path, os.path.basename(input_paths[i]).split('.')[0] + '.png')
-            processed_images.append(processed_image_path)
-            result.save(processed_image_path)
+            #filtered_boxes = pic.boxes[high_conf_indices]
 
-        return processed_images
+            # Обновляем данные в объекте `Boxes`
+            #pic.boxes = filtered_boxes
+            
+            # Создаем DataFrame из отфильтрованных данных
+            data_dict = {
+                'class': pic.boxes.cls.cpu().numpy(),
+                #'confidence': pic.boxes.conf.cpu().numpy(),
+                'x_center': pic.boxes.xywh[:, 0].cpu().numpy(),
+                'y_center': pic.boxes.xywh[:, 1].cpu().numpy(),
+                'width': pic.boxes.xywh[:, 2].cpu().numpy(),
+                'height': pic.boxes.xywh[:, 3].cpu().numpy()
+            }
+            df = pd.DataFrame(data_dict)
+            tables.append(df)
 
-    def process_videos(self, input_paths):
+            # Используем метод plot для получения изображения с рамками
+            annotated_image = pic.plot()
+            annotated_images.append(annotated_image)
+
+
+            # Поскольку OpenCV загружает изображения в формате BGR, преобразуем их в формат RGB для корректного отображения
+            #annotated_image = cv2.cvtColor(annotated_image, cv2.COLOR_BGR2RGB)
+        return annotated_images, tables
+
+    def save_pics(self, images, to_process_names, tables):
+        os.makedirs(self.output_folder, exist_ok=True)
+
+        save_paths = []
+        # Сохраняем каждое изображение в отдельный файл
+        for img_array, name_inp, table in zip(images, to_process_names, tables):
+            img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
+            # Формируем новое имя
+            name_out = os.path.splitext(os.path.basename(name_inp))[0]
+
+            img = Image.fromarray(img_array)
+            # Создаем корректный путь к файлу
+            output_path = os.path.join(self.output_folder, f'{name_out}.png')
+            img.save(output_path)
+            output_path_metadata = os.path.join(self.metadata_folder, f'{name_out}.txt')
+            table.to_csv(output_path_metadata, sep='\t', index=False)
+            save_paths.append(output_path)
+        return save_paths
+
+    def process_images(self, to_process_names):
+        #results = self.model(images, verbose=False, save_dir='processed_files', save=True)
+        data = self.model(to_process_names, conf = self.confidence_threshold, batch=self.batch_size)
+        pics, tables = self.get_Boxes_and_Tables(data)
+        save_paths = self.save_pics(pics, to_process_names, tables)
+
+        return save_paths
+
+    def process_single_video(self, video_path):
+        cap = cv2.VideoCapture(video_path)
+        output_video_path = os.path.join(self.output_folder, os.path.basename(video_path))
+        fourcc = cv2.VideoWriter_fourcc(*'avc1')#*'avc1')
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        out = cv2.VideoWriter(output_video_path, fourcc, fps, (int(cap.get(3)), int(cap.get(4))))
+
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        frames = []
+
+        frame_num = 0
+        # Инициализация пустого тензора для хранения результатов
+        all_classes = []
+        all_confidences = []
+        all_x_centers = []
+        all_y_centers = []
+        all_widths = []
+        all_heights = []
+        frame_nums = []
+
+        with tqdm(total=total_frames, desc=f"Processing Video {os.path.basename(video_path)}", position=0, leave=True) as pbar:
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                frames.append(frame)
+                frame_num += 1
+
+                if len(frames) == self.batch_size or frame_num == total_frames:
+                    results = self.model(frames, verbose=False, conf=0.25)
+
+                    for i, result in enumerate(results):
+                        num_detections = len(result.boxes.cls)
+                        if num_detections > 0:
+                            all_classes.extend(result.boxes.cls.cpu().tolist())
+                            all_confidences.extend(result.boxes.conf.cpu().tolist())
+                            all_x_centers.extend(result.boxes.xywh[:, 0].cpu().tolist())
+                            all_y_centers.extend(result.boxes.xywh[:, 1].cpu().tolist())
+                            all_widths.extend(result.boxes.xywh[:, 2].cpu().tolist())
+                            all_heights.extend(result.boxes.xywh[:, 3].cpu().tolist())
+                            frame_nums.extend([frame_num + i] * num_detections)
+
+                        annotated_frame = result.plot()  # Получаем кадр с нанесенными рамками
+                        out.write(annotated_frame)
+
+                    frames = []
+                    pbar.update(self.batch_size)
+                
+        cap.release()
+        out.release()
+        cv2.destroyAllWindows()
+
+        #print(len(frame_nums), len(all_classes), len(all_x_centers), len(all_y_centers), len(all_widths), len(all_heights))
+        # Создание DataFrame
+
+        # Перевод тензоров на CPU и преобразование в списки
+        data = {
+            'frame_num': frame_nums,
+            'class': all_classes,
+            'x_center': all_x_centers,
+            'y_center': all_y_centers,
+            'width': all_widths,
+            'height': all_heights
+        }
+
+        tab = pd.DataFrame(data)
+        tab['class'] = tab['class'].astype(int)#.map(self.classes)
+        os.makedirs(self.metadata_folder, exist_ok=True)
+        tab.to_csv(os.path.join(self.metadata_folder, f'{os.path.splitext(os.path.basename(video_path))[0]}.csv'))
+        return output_video_path
+
+    def process_videos(self, video_paths):
         vids = []
-        for video_path in input_paths:
+        for video_path in video_paths:
             output_video_path = self.process_single_video(video_path)
             vids.append(output_video_path)
         return vids
@@ -116,10 +179,11 @@ def process_media(input_paths, processor):
     image_paths = [path for path in input_paths if path.lower().endswith(image_extensions)]
     video_paths = [path for path in input_paths if path.lower().endswith(video_extensions)]
 
-    imgs, vids = [], []
+    img_save_paths_list, vid_save_paths_list = [], []
 
     if image_paths:
-        imgs = processor.process_images(image_paths)
+        img_save_paths_list = processor.process_images(image_paths)
     if video_paths:
-        vids = processor.process_videos(video_paths)
-    return imgs, vids
+        vid_save_paths_list = processor.process_videos(video_paths)
+    print(vid_save_paths_list)
+    return img_save_paths_list, vid_save_paths_list
