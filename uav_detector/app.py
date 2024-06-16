@@ -5,10 +5,10 @@ from VideoProcessor import MediaProcessor, process_media
 import pandas as pd
 
 # Папки для хранения метаданных, обработанных и загруженных файлов, а также моделей
-metadata_folder = 'metadata'
-processed_files_folder = 'processed_files'
-uploaded_files_folder = 'uploaded_files'
-model_folder = 'models'
+metadata_folder = 'uav_detector/metadata'
+processed_files_folder = 'uav_detector/processed_files'
+uploaded_files_folder = 'uav_detector/uploaded_files'
+model_folder = 'uav_detector/models'
 
 # Функция для создания папок для загрузки и обработки файлов
 def create_folders(upload_folder=uploaded_files_folder, processed_folder=processed_files_folder):
