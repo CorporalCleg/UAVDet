@@ -47,7 +47,8 @@ docker build -t uav_test .
 
 ### Запуск контейнера
 ```bash
-docker run -it --rm --privileged -p 8501:8501 --gpus all uav_test
+docker run -it --rm --privileged -p 8501:8501 --gpus all uav_test streamlit run uav_detector/app.py
+
 ```
 
 После запуска приложения вы увидите браузерный интерфейс. В этом руководстве объясняется, как загружать и обрабатывать файлы, а также как скачивать результаты обработки.
