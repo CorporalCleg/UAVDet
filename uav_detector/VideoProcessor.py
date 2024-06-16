@@ -12,6 +12,8 @@ class MediaProcessor:
     def __init__(self, output_folder, model_path, metadata_path, confidence_threshold=0.25, batch_size=16):
         self.output_folder = output_folder
         self.metadata_folder = metadata_path
+        os.makedirs(self.metadata_folder, exist_ok=True)
+        os.makedirs(self.output_folder, exist_ok=True)
         self.model = YOLO(model_path)
         self.confidence_threshold = confidence_threshold
         self.classes = self.model.names
@@ -59,7 +61,6 @@ class MediaProcessor:
 
     def save_pics(self, images, to_process_names, tables):
         # Сохранение изображений и метаданных
-        os.makedirs(self.output_folder, exist_ok=True)
         save_paths = []
 
         for img_array, name_inp, table in zip(images, to_process_names, tables):
@@ -147,7 +148,6 @@ class MediaProcessor:
         tab = pd.DataFrame(data)
         tab['class'] = tab['class'].astype(int)
         tab['time'] = (tab['frame_num'] / fps).round(3).astype(float)
-        os.makedirs(self.metadata_folder, exist_ok=True)
         tab.to_csv(os.path.join(self.metadata_folder, f'{os.path.splitext(os.path.basename(video_path))[0]}.csv'), sep=';')
 
         return output_video_path
