@@ -9,10 +9,10 @@ import pillow_heif
 import numpy as np
 
 class MediaProcessor:
-    def __init__(self, output_folder, model_path, confidence_threshold=0.25, batch_size=16):
+    def __init__(self, output_folder, model_path, metadata_path, confidence_threshold=0.25, batch_size=16):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.output_folder = output_folder
-        self.metadata_folder = 'uav_detector/metadata' 
+        self.metadata_folder = metadata_path
         self.model = YOLO(model_path).to(self.device)
         self.confidence_threshold = confidence_threshold
         self.classes = self.model.names
@@ -48,7 +48,7 @@ class MediaProcessor:
             # Создаем DataFrame из отфильтрованных данных
             data_dict = {
                 'class': pic.boxes.cls.cpu().numpy(),
-                'confidence': pic.boxes.conf.cpu().numpy(),
+                #'confidence': pic.boxes.conf.cpu().numpy(),
                 'x_center': pic.boxes.xywh[:, 0].cpu().numpy(),
                 'y_center': pic.boxes.xywh[:, 1].cpu().numpy(),
                 'width': pic.boxes.xywh[:, 2].cpu().numpy(),
@@ -80,8 +80,8 @@ class MediaProcessor:
             # Создаем корректный путь к файлу
             output_path = os.path.join(self.output_folder, f'{name_out}.png')
             img.save(output_path)
-            output_path_metadata = os.path.join(self.metadata_folder, f'{name_out}.csv')
-            table.to_csv(output_path_metadata)
+            output_path_metadata = os.path.join(self.metadata_folder, f'{name_out}.txt')
+            table.to_csv(output_path_metadata, sep='\t', index=False)
             save_paths.append(output_path)
         return save_paths
 
