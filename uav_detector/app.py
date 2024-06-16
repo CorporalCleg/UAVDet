@@ -4,10 +4,10 @@ from ultralytics import YOLO
 from VideoProcessor import MediaProcessor, process_media
 import pandas as pd
 
-metadata_folder = 'uav_detector/metadata'
-processed_files_folder = 'uav_detector/processed_files'
-uploaded_files_folder = 'uav_detector/uploaded_files'
-model_folder = 'uav_detector/models'
+metadata_folder = 'metadata'
+processed_files_folder = 'processed_files'
+uploaded_files_folder = 'uploaded_files'
+model_folder = 'models'
 
 # Создание папок для загрузки и обработки файлов
 def create_folders(upload_folder=uploaded_files_folder, processed_folder=processed_files_folder):
@@ -28,10 +28,13 @@ def zip_files(metadata_folder, file_paths):
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
         for file_path in file_paths:
             # Получаем базовое имя файла без расширения и добавляем .csv
-            pure_name = os.path.splitext(os.path.basename(file_path))[0]
-            full_path = os.path.join(metadata_folder, pure_name + '.csv')
+            splited = os.path.splitext(os.path.basename(file_path))
+            pure_name, extension = splited[0], splited[1]
+            if extension == '.mp4': metadata_extension = '.csv'
+            else: metadata_extension = '.txt'
+            full_path = os.path.join(metadata_folder, pure_name + metadata_extension)
             print(full_path)
-            zipf.write(full_path, arcname=pure_name + '.csv')
+            zipf.write(full_path, arcname=pure_name + metadata_extension)
     zip_buffer.seek(0)
     return zip_buffer
 
@@ -121,6 +124,6 @@ def main(processor):
 # Запуск приложения
 if __name__ == "__main__":
     model_path = f'{model_folder}/yolo8m_last.pt'  # Укажите путь к модели
-    processor = MediaProcessor(processed_files_folder, model_path, batch_size=16)
+    processor = MediaProcessor(processed_files_folder, model_path, metadata_path=metadata_folder, batch_size=16)
 
     main(processor)
