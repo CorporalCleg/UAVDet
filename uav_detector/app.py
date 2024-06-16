@@ -4,34 +4,38 @@ from ultralytics import YOLO
 from VideoProcessor import MediaProcessor, process_media
 import pandas as pd
 
-metadata_folder = 'uav_detector/metadata'
-processed_files_folder = 'uav_detector/processed_files'
-uploaded_files_folder = 'uav_detector/uploaded_files'
-model_folder = 'uav_detector/models'
+# Папки для хранения метаданных, обработанных и загруженных файлов, а также моделей
+metadata_folder = 'metadata'
+processed_files_folder = 'processed_files'
+uploaded_files_folder = 'uploaded_files'
+model_folder = 'models'
 
-# Создание папок для загрузки и обработки файлов
+# Функция для создания папок для загрузки и обработки файлов
 def create_folders(upload_folder=uploaded_files_folder, processed_folder=processed_files_folder):
     if not os.path.exists(upload_folder):
         os.makedirs(upload_folder)
     if not os.path.exists(processed_folder):
         os.makedirs(processed_folder)
 
-# Функция для загрузки файлов
+# Функция для сохранения загруженных файлов
 def save_uploaded_file(uploaded_file, folder_name=uploaded_files_folder):
     file_path = os.path.join(folder_name, uploaded_file.name)
     with open(file_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return file_path
 
+# Функция для создания zip-архива из метаданных файлов
 def zip_files(metadata_folder, file_paths):
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
         for file_path in file_paths:
-            # Получаем базовое имя файла без расширения и добавляем .csv
+            # Получаем базовое имя файла без расширения и добавляем .csv или .txt
             splited = os.path.splitext(os.path.basename(file_path))
             pure_name, extension = splited[0], splited[1]
-            if extension == '.mp4': metadata_extension = '.csv'
-            else: metadata_extension = '.txt'
+            if extension == '.mp4': 
+                metadata_extension = '.csv'
+            else: 
+                metadata_extension = '.txt'
             full_path = os.path.join(metadata_folder, pure_name + metadata_extension)
             print(full_path)
             zipf.write(full_path, arcname=pure_name + metadata_extension)
@@ -44,17 +48,10 @@ def display_file(selected_file, folder_name=processed_files_folder):
     if selected_file.endswith('.mp4'):
         print(file_path)
         st.video(file_path)
-        #table = pd.read_csv('metadata/drones.mp4_detection_results.csv')
-        #table.reset_index(drop=True, inplace=True)
-        #table.rename_axis('id', axis='index', inplace=True)
-        #table.reset_index(inplace=True)
-        #table['timestamp'] = (table['timestamp']*1000)#.astype('int')
-        #table = table[['id', 'timestamp', 'class']]
-        #items = table.to_dict(orient='records')
-        #timeline = st_timeline(items, groups=[], options=options, height="300px")
     else:
         st.image(file_path, use_column_width=True)
 
+# Функция для исключения уже обработанных файлов из списка
 def exclude_processed_files(file_list, processed_files):
     return [file for file in file_list if os.path.basename(file.file_id) not in processed_files]
 
